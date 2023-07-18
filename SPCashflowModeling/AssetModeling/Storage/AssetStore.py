@@ -35,7 +35,7 @@ ASSETSTORE['autoLoan45'] = SPCFUtils.convertToDict(assetType = "Amortization",
     cprVector = SPCFUtils.convertIntexRamp("7", term = 45, divisor = 100),
     sevVector = SPCFUtils.convertIntexRamp("60", term = 45, divisor = 100),
     dqVector = SPCFUtils.convertIntexRamp("0 ramp 10 13", term = 45, divisor = 100),
-    servicingFeesRatio = 0.005)
+    servicingFeesRatio = 0.008)
 
 
 
@@ -49,4 +49,16 @@ ASSETSTORE['consumerLoan58'] = SPCFUtils.convertToDict(
     cprVector = SPCFUtils.convertIntexRamp("7", term = 58, divisor = 100),
     sevVector = SPCFUtils.convertIntexRamp("92", term = 58, divisor = 100),
     dqVector = SPCFUtils.convertIntexRamp("0 ramp 6 7", term = 58, divisor = 100),
+    servicingFeesRatio = 0.005)
+
+
+ASSETSTORE['consumerLoanUpstart2302'] = SPCFUtils.convertToDict(    
+    assetType = "Amortization",
+    notional = 1e9, term = 56,intRate = 0.2175,\
+    totalDefault = 0.2038,
+    defaultTimingCurve = SPCFUtils.timingCurveParse("32/43/18/6/1", term = 56),
+    cdrVector = None,
+    cprVector = SPCFUtils.convertIntexRamp("7", term = 56, divisor = 100),
+    sevVector = SPCFUtils.convertIntexRamp("92", term = 56, divisor = 100),
+    dqVector = SPCFUtils.convertIntexRamp("0 ramp 8 8", term = 56, divisor = 100),
     servicingFeesRatio = 0.005)

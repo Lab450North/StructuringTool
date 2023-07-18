@@ -33,3 +33,19 @@ STRUCTURESTORE['ABCut'] = {
                                                    },
     "eodTrigger":{"couponShortfall":True},
     }
+
+STRUCTURESTORE['ConsumerABS'] = {
+    "structureType":"TermABS",
+    "advRate": {"A": 53.3, "B": 66.75, "C": 85},
+    "coupon": {"A": 0.0677, "B": 0.0792, "C": 0.1187},
+    "reserveAccount":{"percent": 0.0050},
+    "redemptionSchedule":{"collateralPct": 0.1},
+    "creditEnhancement":{"targetOC": 18.5,"OCFloor": 0.02},
+    "periodicFees": {"servicing": {"feeAmount": 0.025, "isRatio": True, "feeFreq": 12},
+                     "trustee": {"feeAmount": 5000, "isRatio": False, "feeFreq": 12}
+                     },
+    "amTrigger":{"delinquency": SPCFUtils.convertIntexRamp("100", term = 1, divisor = 100.0, forceInt=False),
+                 "cnl": SPCFUtils.convertIntexRamp("3 for 3 4 for 2 8.5 for 3 12.5 for 3 15.65 for 3 18.15 for 3 19.3 for 3 20.5 for 3 20.9 for 3 21.65 for 3 25", term = 56, divisor = 100.0, forceInt=False)
+                                                   },
+    "eodTrigger":{"couponShortfall":True},
+    }
