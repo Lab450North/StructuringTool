@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import numpy_financial as npf
+from functools import reduce
 
 class Structure:
     def __new__(cls, collateralRampCF, **kwargs):
@@ -41,6 +42,13 @@ class Structure:
 
         df = df.reset_index()
         df.columns = ["matrics", "value"]
+        return df
+
+    def getDynamicMetrics(self, metrics):
+        if metrics not in self.StructureStats["ts_metrics"]:
+            print(f"metrics {metrics} not found")
+            return None
+        df = self.StructureStats["ts_metrics"][metrics]
         return df
 
     def getCapitalStructure(self):
@@ -142,7 +150,11 @@ class Structure:
         self.StructureStats["metrics"]["lossTiming"] = self.DealCashflow.groupby(("Asset","periodYears"))[[("Asset", "lossPrin")]].sum() / self.DealCashflow[("Asset","lossPrin")].sum(axis = 0)
         
         self.StructureStats["metrics"]["lossTiming"] = "/".join(map(lambda x: f'{x[0]:.0f}', self.StructureStats["metrics"]["lossTiming"].iloc[1:].values * 100))
+
+
+        self.StructureStats["metrics"]["defaultTiming"] = self.DealCashflow.groupby(("Asset","periodYears"))[[("Asset", "lossPrin")]].sum() / self.DealCashflow[("Asset","lossPrin")].sum(axis = 0)
         
+        self.StructureStats["metrics"]["defaultTiming"] = "/".join(map(lambda x: f'{x[0]:.0f}', self.StructureStats["metrics"]["defaultTiming"].iloc[1:].values * 100))        
 
         for _class in self.capTable.effectiveClass:
             self.StructureStats["metrics"][f"{_class}_remainingBalance"] = self.DealCashflow[(_class, 'eopBal')].tail(1).values[0]
@@ -161,7 +173,7 @@ class Structure:
         self.StructureStats["metrics"]["residual_yield"] =  npf.irr(self.DealCashflow[("Residual", "investmentCF")].values) * 12
 
         # filtered metrics
-        for k in ['debtCost', 'effectiveAdvRate','cnl',"lossTiming"]:
+        for k in ['debtCost', 'effectiveAdvRate','cnl',"defaultTiming", "lossTiming"]:
             self.StructureStats["filteredMetrics"].update({k:self.StructureStats["metrics"][k]})
         
         for k in ["remainingFactor", "WAL", "Paywindow"]:

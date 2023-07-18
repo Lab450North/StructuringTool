@@ -4,6 +4,7 @@ from StructureModeling.Structure import Structure
 from functools import reduce
 import numpy as np
 import pandas as pd
+import re
 
 class DealManager:
     def __init__(self, **kwargs):
@@ -69,19 +70,42 @@ class DealManager:
 
         return True
 
-    def addSeriesDefaultScenario(self, startingMultiple, endingMultiple, step):
-        if "base" not in self.assetScenarios:
-            print("Base scenario not found.")
+    def addSeriesDefaultScenario(self, startingMultiple, endingMultiple, step, baseScenario = "base"):
+        if baseScenario not in self.assetScenarios:
+            print(f"{baseScenario} scenario not found.")
             return None
         
-        baseCGL = self.unleveredContainer["base"].assetStats["metrics"]["cgl"]
+        baseTotalDefault = self.unleveredContainer[baseScenario].assumptionSet.get('totalDefault')
+        baseDefaultTiming = self.unleveredContainer[baseScenario].assumptionSet.get('defaultTimingCurve')
+        baseCdrVector = self.unleveredContainer[baseScenario].assumptionSet.get('cdrVector')
+        dealTerm = self.leveredContainer[baseScenario].DealCashflow.shape[0] -1 
+
         for multiple in np.arange(startingMultiple, endingMultiple + step, step):
-            self.copyAssetWithNewAssumption("base", f"base_{multiple}x", 
-                                            {"totalDefault": baseCGL * multiple,
-                                             "cdrCurve": None
-                                             })
-            
-    
+            if (baseTotalDefault is not None) and (baseDefaultTiming is not None):
+                self.copyAssetWithNewAssumption(baseScenario, f"{baseScenario}_{multiple}x", 
+                                                {"totalDefault": baseTotalDefault * multiple,
+                                                "cdrVector": None
+                                                })
+            else:
+                self.copyAssetWithNewAssumption(baseScenario, f"{baseScenario}_{multiple}x", 
+                                                {"totalDefault": None,
+                                                 "defaultTimingCurve": None,
+                                                "cdrVector": [min(item * multiple, 0.99999999999999) for item in baseCdrVector]
+                                                })
+
+    def removeMultipleScenario(self, scenarioName = "base"):
+        removedScenario = []
+        # pattern = re.compile(r'(?i)base_\d+(\.\d+)?x')
+        pattern = re.compile(r'(?i)' + scenarioName + r'_\d+(\.\d+)?x') 
+        for k,v in self.assetScenarios.items():
+            if pattern.match(k):
+                removedScenario.append(k)
+        
+        for item in removedScenario:
+            self.removeScenario(item)
+        
+        print(f"removed scenarios: {removedScenario}")
+
     def removeScenario(self, scenarioName):
         
         if isinstance(scenarioName, list):
@@ -93,6 +117,7 @@ class DealManager:
         self.unleveredContainer.pop(scenarioName, None)
         self.leveredContainer.pop(scenarioName, None)
         self.statusTracking.drop(scenarioName, inplace = True)
+        self.checkAssetData()
 
         return True
 
@@ -158,6 +183,12 @@ class DealManager:
         
         return df
 
+    def getStructureDynamicMetrics(self, metrics):
+        resDict = {}
+        for k, v in self.leveredContainer.items():
+            resDict[k] = v.getDynamicMetrics(metrics)
+        return resDict
+
     def getAssetStaticMetrics(self, pxList = [100], ramp = False):
         df = [v.getStaticMetrics(ramp).rename(columns = {"value":k, "matrics":"matrics/px"}) for k, v in self.unleveredContainer.items()]
         df = reduce(lambda left,right: pd.merge(left,right,on='matrics/px', how='outer'), df)
@@ -191,4 +222,8 @@ class DealManager:
         self.scenarioCount = len(self.assetScenarios)
         return True
     
+    def getScenarioCount(self):
+        return self.scenarioCount
     
+    def getScenarioNames(self):
+        return list(self.assetScenarios.keys())

@@ -215,16 +215,17 @@ class AmortizationAsset(Asset):
                     - cashflow.at[i, "prepayPrin"]
                 )
 
-                cashflow.at[i, "servicingFees"] = (
+                servicingFeesDue = (
                     np.average([cashflow.at[i, "bopBal"], cashflow.at[i, "eopBal"]])
                     * cashflow.at[i, "servicingFeesRatio"]
                     / 12.0
                 )
+                cashflow.at[i, "servicingFees"] = min(cashflow.at[i, "intCF"], servicingFeesDue)
 
                 cashflow.at[i, "netIntCF"] = (
                     cashflow.at[i, "intCF"] - cashflow.at[i, "servicingFees"]
                 )
-
+                        
         cashflow["grossTotalCF"] = cashflow["intCF"] + cashflow["prinCF"]
         cashflow["totalCF"] = cashflow["netIntCF"] + cashflow["prinCF"]
 
@@ -295,6 +296,9 @@ class AmortizationAsset(Asset):
         assetStats["metrics"]["lossTiming"] = self.cashflow.groupby("periodYears")["lossPrin"].sum() / self.cashflow["lossPrin"].sum()
         assetStats["metrics"]["lossTiming"] = "/".join(map(lambda x: f'{x:.0f}', assetStats["metrics"]["lossTiming"].iloc[1:].values * 100))
 
+        assetStats["metrics"]["defaultTiming"] = self.cashflow.groupby("periodYears")["defaultPrin"].sum() / self.cashflow["defaultPrin"].sum()
+        assetStats["metrics"]["defaultTiming"] = "/".join(map(lambda x: f'{x:.0f}', assetStats["metrics"]["defaultTiming"].iloc[1:].values * 100))
+        
 
         assetStats["ts_metrics"]["cdrCurve"] = self.cashflow[["period", "cdrVector"]]
         assetStats["ts_metrics"]["cprCurve"] = self.cashflow[["period", "cprVector"]]

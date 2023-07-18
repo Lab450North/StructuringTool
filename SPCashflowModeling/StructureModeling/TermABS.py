@@ -93,7 +93,7 @@ class TermABS(Structure):
                     if feeRow['isRatio']:
                         row[("Fees", feeRow['feeName'])] = row[("Asset", "bopBal")] * feeRow['feeAmount'] / 12.0
                     else:
-                        row[("Fees", feeRow['feeName'])] = feeRow['feeAmount']
+                        row[("Fees", feeRow['feeName'])] = feeRow['feeAmount'] * (row[("Asset", "bopBal")] > 0)
                 feesDue = sum(row[self.feesColumns])
             else:
                 feesDue = 0
