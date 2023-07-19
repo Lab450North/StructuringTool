@@ -5,7 +5,7 @@ from Utils.SPCFUtils import SPCFUtils
 import pandas as pd
 import numpy as np
 import itertools
-import os, sys; sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+# import os, sys; sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 class TermABS(Structure):
     def __init__(self, collateralRampCF, **kwargs):
@@ -19,13 +19,12 @@ class TermABS(Structure):
         self.collateralRampCF.loc[:, "dqVector"] = self.collateralRampCF.loc[:, "dqBal"] / self.collateralRampCF.loc[:, "bopBal"]
         self.collateralRampCF.loc[:, "cnl"] = self.collateralRampCF.loc[:, "cumulativeLossPrin"] / self.dealNotional
 
-    def enrichABSTerms(self):
-        self.capTable = StructureComponent.CapitalStructure(advRate = self.advRate, coupon = self.coupon)
-        self.capTable.effectiveCapitalStructure()
+    def enrichFinancingTerms(self):
+        self.capTable = StructureComponent.TermCapitalStructure(advRate = self.advRate, coupon = self.coupon)
         self.periodicFeesDetail = StructureComponent.PeriodicFee(self.periodicFees)
         
 
-    def SetDealCashflowDF(self):
+    def setDealCashflowDF(self):
         self.DealCashflow = self.collateralRampCF.copy().set_index(
             "period"
         )
@@ -67,8 +66,6 @@ class TermABS(Structure):
         eodBreached = False
 
         for i, row in self.DealCashflow.iterrows():
-            availCashCF = {}
-
             if i == 0:
                 # initial status balance
                 row[self.debtBopColumns] = 0                
@@ -195,7 +192,7 @@ class TermABS(Structure):
 
             # *********************** Residual Cashflow ***********************
             if i == 0:
-                row[("Residual", "cashInvestment")] = -row[("Asset", "purchaseCash")] + row[self.debtEopColumns].sum()
+                row[("Residual", "cashInvestment")] = -row[("Asset", "purchaseCash")] + row[self.capTable.classColumnsGroup("eopBal")].sum()
             else:
                 row[("Residual", "cashInvestment")] = 0
 
@@ -219,6 +216,34 @@ class TermABS(Structure):
 
     def buildStats(self):
         super().buildStats()
+
+        # * ts_metrics
+        self.StructureStats["ts_metrics"]["CNLTest"] = self.DealCashflow[
+            [("AMTriggerTest", "CNLTrigger")] + [("AMTriggerTest", "CNLActual")]+ [("AMTriggerTest", "CNLBreached")]
+        ]
+
+        self.StructureStats["ts_metrics"]["CEBuild"] = self.DealCashflow[
+            [("CreditEnhancement", "targetOCPct")] + [("CreditEnhancement", "actualOCPct")]
+        ]
+
+        self.StructureStats["ts_metrics"]["cashCheck"] = self.DealCashflow[('Asset','totalCF')] + \
+            self.DealCashflow[('ReserveAccount','rsvBal')].shift(1) \
+                - self.DealCashflow[("Fees", "feesCollected")] \
+                    - self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")].sum(axis=1) \
+                        - self.DealCashflow[('ReserveAccount','rsvBal')] \
+                            - self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")].sum(axis=1) \
+                                -self.DealCashflow[("Residual", "repaymentCash")]
+
+        # * filteredMetrics
+        for k in ['debtCost', 'effectiveAdvRate','cnl',"defaultTiming", "lossTiming"]:
+            self.StructureStats["filteredMetrics"].update({k:self.StructureStats["metrics"][k]})
+        
+        for k in ["remainingFactor", "WAL", "Paywindow"]:
+            for _class in self.capTable.effectiveClass:
+                classK = f"{_class}_{k}"
+                self.StructureStats["filteredMetrics"].update({classK:self.StructureStats["metrics"][classK]})
+        
+        self.StructureStats["filteredMetrics"]['residual_yield'] = self.StructureStats["metrics"]['residual_yield']
 
 
 # ************************************************************************************************************************

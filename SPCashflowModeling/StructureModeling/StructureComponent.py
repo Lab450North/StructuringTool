@@ -15,23 +15,28 @@ class PeriodicFee:
 
 class CapitalStructure:
     def __init__(self, **kwargs):
-        advRate = kwargs.get("advRate")
-        coupon = kwargs.get("coupon")
-        if (advRate is not None) and (coupon is not None):
-            data = [{'debtName': k, 'advRate': advRate[k], 'coupon': coupon[k]} for k in advRate]
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+        if self.allVariablesDefined():
+            data = [{'debtName': k, **{var: getattr(self, var)[k] for var in self.variablesToCheck()}} for k in getattr(self, 'advRate')]
             self.capitalStructure = pd.DataFrame(data)
         else:
-            self.capitalStructure = pd.DataFrame(columns = ["debtName", "advRate", "debtCoupon"])
-    
-    def addJuniorDebt(self, debtName, advRate, debtCoupon):
-        self.capitalStructure.loc[len(self.capitalStructure)] = [debtName, advRate, debtCoupon]
-        
-    def removeJuniorDebt(self):
-        if len(self.capitalStructure) > 0:
-            self.capitalStructure.drop(self.capitalStructure.tail(1).index, inplace = True)
-     
+            self.capitalStructure = pd.DataFrame(columns = ["debtName"] + self.variablesToCheck())
+        self.effectiveCapitalStructure()
+
+
+    def getTerm(self, debtName, feature):
+        return self.capitalStructure[self.capitalStructure['debtName'] == debtName][feature].values[0]
+
     def getCapitalStructure(self):
         return self.capitalStructure
+
+    def allVariablesDefined(self):
+        return all(getattr(self, var, None) is not None for var in self.variablesToCheck())
+
+    def variablesToCheck(self):
+        return []
 
     def checkAdvRate(self):
         if len(self.capitalStructure) == 0:
@@ -44,11 +49,10 @@ class CapitalStructure:
         if temp.min() < 0:
             print("junior debt advRate should be higher than senior")
             return False
-        
         return True
 
     def effectiveCapitalStructure(self):
-        if self.checkAdvRate:
+        if self.checkAdvRate():
             temp = self.capitalStructure[(self.capitalStructure['advRate'].shift(1) < self.capitalStructure['advRate'])]
             self.capitalStructure = pd.concat([self.capitalStructure.head(1), temp], axis = 0)
             self.capitalStructure = self.capitalStructure.reset_index(drop = True)
@@ -60,6 +64,20 @@ class CapitalStructure:
         else:
             print("advRate check failed")
             return None
+
+class TermCapitalStructure(CapitalStructure):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
+    def variablesToCheck(self):
+        return ['advRate', 'coupon']
+        
+class RevolvingCapitalStructure(CapitalStructure):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+                
+    def variablesToCheck(self):
+        return ['advRate', 'coupon', "undrawnFee", "commitPeriod", "facilitySize"]
 
 class Trigger:
     def __init__(self) -> None:

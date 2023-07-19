@@ -24,6 +24,9 @@ class SPCFUtils:
     def convertToDict(**kwargs):
         return kwargs
 
+    @staticmethod
+    def facilitySize(vector, term = None):
+        return SPCFUtils.convertIntexRamp(vector, term = term, divisor=1.0/1e6, forceInt=False)
 
     @staticmethod
     def rampSchdule(ramp, pxSchedule = "100"):

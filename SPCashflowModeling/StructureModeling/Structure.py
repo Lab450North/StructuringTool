@@ -11,6 +11,10 @@ class Structure:
                 # to avoid circular import, import module here
                 from StructureModeling.TermABS import TermABS
                 return super(Structure, cls).__new__(TermABS)
+            elif structureType.lower() == "warehouse":
+                from StructureModeling.Warehouse import Warehouse
+                return super(Structure, cls).__new__(Warehouse)
+                
         return super(Structure, cls).__new__(cls)
 
     def __init__(self, collateralRampCF, **kwargs):
@@ -21,9 +25,9 @@ class Structure:
 
     def runCalcSteps(self):
         self.calcCollatMetrics()
-        self.enrichABSTerms()
+        self.enrichFinancingTerms()
 
-        self.SetDealCashflowDF()
+        self.setDealCashflowDF()
         self.buildCashflow()
         
         self.buildAnalysis()
@@ -85,7 +89,7 @@ class Structure:
             self.DealCashflow[(_class, "totalCF")] = self.DealCashflow[(_class, "couponPaid")] + self.DealCashflow[(_class, "principalPaid")]
 
         self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = \
-            (self.DealCashflow[("Asset", "netIntCF")] - self.DealCashflow[("Fees", "servicing")]) / self.DealCashflow[("Asset", "bopBal")] - \
+            (self.DealCashflow[("Asset", "netIntCF")] - self.DealCashflow[("Fees", "feesCollected")]) / self.DealCashflow[("Asset", "bopBal")] - \
                 np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponDue")].sum(axis=1)) / np.array(self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1))
 
         self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = self.DealCashflow[("CreditEnhancement", "ExcessSpread")] * 12
@@ -117,26 +121,14 @@ class Structure:
         self.StructureStats["ts_metrics"]["totalCF"] = self.DealCashflow[
             [("Asset", "totalCF")] + self.capTable.classColumnsGroup("totalCF") + [("Residual", "repaymentCash")]
         ]
+    
 
-        self.StructureStats["ts_metrics"]["CNLTest"] = self.DealCashflow[
-            [("AMTriggerTest", "CNLTrigger")] + [("AMTriggerTest", "CNLActual")]+ [("AMTriggerTest", "CNLBreached")]
-        ]
-        
-        self.StructureStats["ts_metrics"]["CEBuild"] = self.DealCashflow[
-            [("CreditEnhancement", "targetOCPct")] + [("CreditEnhancement", "actualOCPct")]
-        ]
 
         self.StructureStats["ts_metrics"]["ExcessSpread"] = self.DealCashflow[
             [("CreditEnhancement", "ExcessSpread")]
         ]
         
-        self.StructureStats["ts_metrics"]["cashCheck"] = self.DealCashflow[('Asset','totalCF')] + \
-            self.DealCashflow[('ReserveAccount','rsvBal')].shift(1) \
-                - self.DealCashflow[("Fees", "feesCollected")] \
-                    - self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")].sum(axis=1) \
-                        - self.DealCashflow[('ReserveAccount','rsvBal')] \
-                            - self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")].sum(axis=1) \
-                                -self.DealCashflow[("Residual", "repaymentCash")]
+
         
 
         # metrics

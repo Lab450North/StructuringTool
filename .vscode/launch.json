@@ -4,28 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
     
         {
             "name": "testStructure",
             "type": "python",
             "request": "launch",
-            "program": "/home/honfan/Work/SP/North450Lab/Lab450North/SPCashflowModeling/SPCFPresentation.py",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
-            "name": "GLSTest",
-            "type": "python",
-            "request": "launch",
-            "program": "/home/honfan/Work/SP/North450Lab/Lab450North/SPCashflowModeling/SciptTest/structuredCFConceptTest-GLS.py",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
-            "name": "utilTest",
-            "type": "python",
-            "request": "launch",
-            "program": "/home/honfan/Work/SP/North450Lab/Lab450North/SPCashflowModeling/SciptTest/cfutilsTest.py",
+            "program": "/home/honfan/Work/SP/Lab450North/Lab450North/SPCashflowModeling/SPCFPresentation.py",
             "console": "integratedTerminal",
             "justMyCode": true
         },

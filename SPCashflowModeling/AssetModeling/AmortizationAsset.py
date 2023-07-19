@@ -21,33 +21,11 @@ class AmortizationAsset(Asset):
 
         self.cashflow = self.buildCashflow()
         self.cashflow_back = self.cashflow
-        self.assetStats = self._buildStats()
+        self.assetStats = self.buildStats()
 
         self.modelingWarning = {}
         self.scenarios = {"CDRMult":1, "TotalDefaultMult":1}
 
-
-    def setScenarios(self, **kwargs):
-        self.scenarios['CDRMult'] = kwargs.get("CDRMult")
-        self.scenarios['TotalDefaultMult'] = kwargs.get("TotalDefaultMult")
-        return self
-        
-    def _rebuildCashflow(self):
-        if self.scenarios['TotalDefaultMult'] is None:
-            self.defaultTimingCurve = None
-            self.cdrVector = self.cashflow_back.loc[1:, "cdrVector"].apply(lambda x: min(0.9999999999999999999, x * self.scenarios['CDRMult'])).values
-            self.dqVector = self.cashflow_back.loc[1:, "dqVector"].apply(lambda x: min(0.9999999999999999999, x * self.scenarios['CDRMult'])).values
-
-        elif self.scenarios['CDRMult'] is None:
-            self.cdrVector = None
-            self.defaultTimingCurve = self.cashflow_back.loc[1:, "defaultTimingVector"]
-            self.totalDefault =  self.cashflow_back['defaultPrin'].sum() / self.notional * self.scenarios['TotalDefaultMult']
-            self.dqVector = self.cashflow_back.loc[1:, "dqVector"].apply(lambda x: min(0.9999999999999999999, x * self.scenarios['TotalDefaultMult'])).values
-        
-        self.cashflow = self.buildCashflow()
-        self.assetStats = self._buildStats()
-        
-        return self
 
     def buildCashflow(self, workingNotional = None, purchasePx = 100):
         workingNotional = self.notional if workingNotional is None else workingNotional
@@ -272,7 +250,7 @@ class AmortizationAsset(Asset):
 
         return cashflow
 
-    def _buildStats(self):
+    def buildStats(self):
         assetStats = {"metrics": {}, "ts_metrics": {}}
         assetStats["metrics"]["notional"] = self.notional
         assetStats["metrics"]["wal"] = (
@@ -311,7 +289,7 @@ class AmortizationAsset(Asset):
 
         return assetStats
 
-    def _buildRampStats(self):
+    def buildRampStats(self):
         rampAssetStats = {"metrics": {}, "ts_metrics": {}}
         rampAssetStats['metrics']['purchasePeriod'] = (self.rampCashflow['purchaseCash']>0).sum()
         rampAssetStats['metrics']['totalPurchaseBalance'] = self.rampCashflow['purchaseBalance'].sum()

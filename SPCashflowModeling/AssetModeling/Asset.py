@@ -27,7 +27,7 @@ class Asset:
             cashflow = self.buildCashflow(notional, px)
             self.rampSchedule.appendAsset(notional, px, cashflow)
         self.rampCashflow = self.getRampCashflow()
-        self.rampAssetStats = self._buildRampStats()
+        self.rampAssetStats = self.buildRampStats()
     
     def getRampCashflow(self):
         res = self.rampSchedule.aggregateCashflows()

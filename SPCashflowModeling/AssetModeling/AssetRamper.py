@@ -70,4 +70,7 @@ class AssetRamper:
         if "cumulativeInvestmentCash" in concatCashflow.columns:
             concatCashflow["cumulativeInvestmentCash"] = concatCashflow["investmentCash"].cumsum()
 
+        if "cumulativeLossPrin" in concatCashflow.columns:
+            concatCashflow["cumulativeLossPrin"] = concatCashflow["lossPrin"].cumsum()
+            
         return concatCashflow

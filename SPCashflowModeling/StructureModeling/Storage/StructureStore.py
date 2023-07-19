@@ -49,3 +49,19 @@ STRUCTURESTORE['ConsumerABS'] = {
                                                    },
     "eodTrigger":{"couponShortfall":True},
     }
+
+
+STRUCTURESTORE['WH'] = {
+    "structureType":"warehouse",
+    "advRate": {"Snr": 70, "Mezz": 85},
+    "coupon": {"Snr": 0.07, "Mezz": 0.13},
+    "undrawnFee": {"Snr": 0.001, "Mezz": 0.002},
+    "commitPeriod": {"Snr": 2, "Mezz": 2},
+    "facilitySize": {"Snr": 1e8, "Mezz": 3e7},
+    "periodicFees": {"trustee": {"feeAmount": 0.0025, "isRatio": True, "feeFreq": 12},
+                     "verificationAgent": {"feeAmount": 0.0025, "isRatio": True, "feeFreq": 12},
+                     "backupServicer": {"feeAmount": 0.0025, "isRatio": True, "feeFreq": 12},
+                     "trusteeFixed": {"feeAmount": 500, "isRatio": False, "feeFreq": 12},
+                     },
+    "amTrigger":{"rolling3mDQ": SPCFUtils.convertIntexRamp("100", term = 1, divisor = 100.0, forceInt=False)}    
+}
