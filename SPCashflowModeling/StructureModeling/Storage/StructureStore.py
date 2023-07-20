@@ -2,6 +2,23 @@ from Utils.SPCFUtils import SPCFUtils
 
 STRUCTURESTORE = {}
 
+STRUCTURESTORE['PTNoFees'] = {
+    "structureType":"TermABS",
+    "advRate": {"A": 0},
+    "coupon": {"A": 0.0},
+    "reserveAccount":{"percent": 0.000},
+    "redemptionSchedule":{"collateralPct": 0.0},
+    "creditEnhancement":{"targetOC": 0,"OCFloor": 0},
+    "periodicFees": {"servicing": {"feeAmount": 0.000, "isRatio": True, "feeFreq": 12},
+                     "trustee": {"feeAmount": 0, "isRatio": False, "feeFreq": 12}
+                     },
+    "amTrigger":{"delinquency": SPCFUtils.convertIntexRamp("100", term = 1, divisor = 100.0, forceInt=False),
+                 "cnl": SPCFUtils.convertIntexRamp("100", term = 1, divisor = 100.0, forceInt=False)
+                                                   },
+    "eodTrigger":{"couponShortfall":True},
+    }
+
+
 STRUCTURESTORE['PT'] = {
     "structureType":"TermABS",
     "advRate": {"A": 0},

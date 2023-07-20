@@ -1,23 +1,23 @@
 from StructureModeling.Structure import Structure
 import StructureModeling.StructureComponent as StructureComponent
 from Utils.SPCFUtils import SPCFUtils
-
+import numpy_financial as npf
 import pandas as pd
 import numpy as np
 import itertools
 # import os, sys; sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 class TermABS(Structure):
-    def __init__(self, collateralRampCF, **kwargs):
-        super().__init__(collateralRampCF, **kwargs)
-        self.collateralRampCF = collateralRampCF
-        self.dealNotional = self.collateralRampCF.loc[0, "eopBal"]
+    def __init__(self, asset, **kwargs):
+        super().__init__(asset, **kwargs)
+        self.asset = asset
+        self.dealNotional = self.asset.rampCashflow.loc[0, "eopBal"]
         self.readFinancingTerms()
         self.runCalcSteps()
     
     def calcCollatMetrics(self):
-        self.collateralRampCF.loc[:, "dqVector"] = self.collateralRampCF.loc[:, "dqBal"] / self.collateralRampCF.loc[:, "bopBal"]
-        self.collateralRampCF.loc[:, "cnl"] = self.collateralRampCF.loc[:, "cumulativeLossPrin"] / self.dealNotional
+        self.asset.rampCashflow.loc[:, "dqVector"] = self.asset.rampCashflow.loc[:, "dqBal"] / self.asset.rampCashflow.loc[:, "bopBal"]
+        self.asset.rampCashflow.loc[:, "cnl"] = self.asset.rampCashflow.loc[:, "cumulativeLossPrin"] / self.dealNotional
 
     def enrichFinancingTerms(self):
         self.capTable = StructureComponent.TermCapitalStructure(advRate = self.advRate, coupon = self.coupon)
@@ -25,7 +25,7 @@ class TermABS(Structure):
         
 
     def setDealCashflowDF(self):
-        self.DealCashflow = self.collateralRampCF.copy().set_index(
+        self.DealCashflow = self.asset.rampCashflow.copy().set_index(
             "period"
         )
 
@@ -83,7 +83,8 @@ class TermABS(Structure):
             row[("AvailCash", "fromAsset")] = availcash
 
 
-            # *********************** periodic fees ***********************
+
+            # -calc- ******************* Periodic Fees *******************
             # note that closing transaction fees (which would impact residual economics) is not handeled
             if i >0:
                 for feeIdx, feeRow in self.periodicFeesDetail.fees.iterrows():
@@ -101,8 +102,7 @@ class TermABS(Structure):
             row[("AvailCash", "afterFees")] = availcash
 
 
-            # *********************** Debt Coupon ***********************
-
+            # -calc- ******************* Debt Coupon *******************
             row[self.capTable.classColumnsGroup("couponDue")] = (
                 np.array(row[self.capTable.classColumnsGroup("bopBal")])
                 * np.array(self.capTable.capitalStructure["coupon"])
@@ -123,7 +123,7 @@ class TermABS(Structure):
             row[("AvailCash", "afterDebtCoupon")] = availcash
 
 
-            # *********************** AM and EOD Test ***********************
+            # -calc- ******************* AM and EOD Test *******************
             # check EOD Trigger Test
             if self.eodTrigger['couponShortfall']:
                 eodBreached = eodBreached | (row[self.capTable.classColumnsGroup("couponShortfall")].sum() > 0)
@@ -143,7 +143,7 @@ class TermABS(Structure):
             row[("AMTriggerTest", "AMBreached")] = row[("AMTriggerTest", "DelinquencyBreached")] | row[("AMTriggerTest", "CNLBreached")] | eodBreached
             
             
-            # *********************** Replenish Reserve Account ***********************
+            # -calc- ******************* Replenish Reserve Account ******************* 
             if row[("AMTriggerTest", "AMBreached")]:
                 requiredReplenish = 0
             else:
@@ -153,10 +153,10 @@ class TermABS(Structure):
             availcash = availcash - row[('ReserveAccount', 'rsvBal')]
             row[("AvailCash", "afterReserveAccount")] = availcash
             
-
-            # *********************** Debt Principal ***********************
+            # -calc- ******************* Debt Principal ******************* 
             
-            # calculate OC
+            
+            # calc Debt Principal: Step 1) OC
             row[("CreditEnhancement", "targetOCPct")] = 1.00 if row[("AMTriggerTest", "AMBreached")] else (self.creditEnhancement["targetOC"] / 100.0)
             row[("CreditEnhancement", "targetOCDollar")] = row[("CreditEnhancement", "targetOCPct")] * row[("Asset", "eopBal")]
             row[("CreditEnhancement", "minOCDollar")] = self.creditEnhancement["OCFloor"] * self.dealNotional
@@ -179,7 +179,7 @@ class TermABS(Structure):
             availcash = availcash - paidToDebt
             row[("AvailCash", "afterDebtPrin")] = availcash
 
-            # calculate eop balance of debt
+            # calc Debt Principal: Step 2) eop balance of debt
             if i > 0:
                 row[self.capTable.classColumnsGroup("eopBal")] = (
                     np.array(row[self.capTable.classColumnsGroup("bopBal")])
@@ -190,7 +190,7 @@ class TermABS(Structure):
                 if row[(_class, "eopBal")] < 0.5:
                     row[(_class, "eopBal")] = 0
 
-            # *********************** Residual Cashflow ***********************
+            # -calc- ******************* Residual Cashflow ******************* 
             if i == 0:
                 row[("Residual", "cashInvestment")] = -row[("Asset", "purchaseCash")] + row[self.capTable.classColumnsGroup("eopBal")].sum()
             else:
@@ -210,14 +210,58 @@ class TermABS(Structure):
 
         return self
 
-    def buildAnalysis(self):
-        super().buildAnalysis()
+    def buildSpecificAnalysis(self):
+
+        # -calc- ******************* Debt Cost and Cashflow ******************* 
+        self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")] = np.array(
+            (self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")])
+        )
+
+        self.DealCashflow[self.capTable.classColumnsGroup("totalCF")] = np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")]) + np.array(self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")])
+
+        # -calc- ******************* Advance Rate ******************* 
+        self.DealCashflow[self.capTable.classColumnsGroup("effectiveAdvRate")] = (
+            np.array(self.DealCashflow[self.capTable.classColumnsGroup("eopBal")])
+            / np.expand_dims(np.array(self.DealCashflow[("Asset", "eopBal")]), 1)
+        ).cumsum(axis=1)
+
+        self.DealCashflow[("Debt", "effectiveDebtCost")] = (
+            np.array(self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")].sum(axis=1))
+            / np.array(
+                self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1)
+            )
+            * 12.0
+        )
         
+        # -calc- ******************* Combine together debt CF ******************* 
+        self.DealCashflow[self.capTable.classColumnsGroup("debtCF")] = np.array(
+            self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")]
+        ) + np.array(self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")])
 
-    def buildStats(self):
-        super().buildStats()
 
-        # * ts_metrics
+        # -calc- ******************* Combine Debt ******************* 
+        self.combineDebt("eopBal")
+        self.combineDebt("debtCostDollar")
+        self.combineDebt("principalPaid")
+        self.combineDebt("debtCF")
+
+    def buildSpecificStats(self):
+
+        # -calc- ******************* metrics ******************* 
+
+        self.StructureStats["metrics"]["assetNetYieldPostFees"] = npf.irr(
+                    self.DealCashflow[("Asset", "investmentCashDeductFees")].values
+                ) * 12
+        
+        self.StructureStats["metrics"]["leverageRatio"] = 1.0 / (1 - self.StructureStats["metrics"]["effectiveAdvRate"] / 100.0)
+        self.StructureStats["metrics"]["NIM"] = self.StructureStats["metrics"]["assetNetYieldPostFees"] \
+                - self.StructureStats["metrics"]["debtCost"] \
+                * self.StructureStats["metrics"]["effectiveAdvRate"] \
+                / 100.0
+        self.StructureStats["metrics"]["impliedROE"] = self.StructureStats["metrics"]["NIM"] * self.StructureStats["metrics"]["leverageRatio"]
+
+
+        # -calc- ******************* ts metrics ******************* 
         self.StructureStats["ts_metrics"]["CNLTest"] = self.DealCashflow[
             [("AMTriggerTest", "CNLTrigger")] + [("AMTriggerTest", "CNLActual")]+ [("AMTriggerTest", "CNLBreached")]
         ]
@@ -234,17 +278,25 @@ class TermABS(Structure):
                             - self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")].sum(axis=1) \
                                 -self.DealCashflow[("Residual", "repaymentCash")]
 
-        # * filteredMetrics
-        for k in ['debtCost', 'effectiveAdvRate','cnl',"defaultTiming", "lossTiming"]:
+
+        # -calc- ******************* filtered metrics ******************* 
+        for k in ['assetNetYieldPostFees', 'debtCost', 'effectiveAdvRate', 'NIM', 'leverageRatio', 'impliedROE', "residInvestmented", "residYield","residMOIC"]:
             self.StructureStats["filteredMetrics"].update({k:self.StructureStats["metrics"][k]})
         
-        for k in ["remainingFactor", "WAL", "Paywindow"]:
+        for k in ["remainingFactor", "wal", "paywindow"]:
             for _class in self.capTable.effectiveClass:
                 classK = f"{_class}_{k}"
                 self.StructureStats["filteredMetrics"].update({classK:self.StructureStats["metrics"][classK]})
-        
-        self.StructureStats["filteredMetrics"]['residual_yield'] = self.StructureStats["metrics"]['residual_yield']
 
+
+    def getCapitalStack(self):
+        super().getCapitalStack()
+
+        df = pd.DataFrame(columns = ["class", "size", "coupon", "advRate"])
+        for _class in self.capTable.effectiveClass:
+            df.loc[len(df)] = [_class, self.StructureStats["metrics"][f"{_class}_size"], self.StructureStats["metrics"][f"{_class}_coupon"], self.StructureStats["metrics"][f"{_class}_origAdv"]]
+        
+        return df
 
 # ************************************************************************************************************************
 

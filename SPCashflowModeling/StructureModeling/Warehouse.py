@@ -11,15 +11,15 @@ import itertools
 
 
 class Warehouse(Structure):
-    def __init__(self, collateralRampCF, **kwargs):
-        super().__init__(collateralRampCF, **kwargs)
-        self.collateralRampCF = collateralRampCF
+    def __init__(self, asset, **kwargs):
+        super().__init__(asset, **kwargs)
+        self.asset = asset
         self.readFinancingTerms()
         self.runCalcSteps()
         
     def calcCollatMetrics(self):
-        self.collateralRampCF.loc[:, "dqVector"] = self.collateralRampCF.loc[:, "dqBal"] / self.collateralRampCF.loc[:, "bopBal"]
-        self.collateralRampCF.loc[:, "cnl"] = self.collateralRampCF.loc[:, "cumulativeLossPrin"] / self.collateralRampCF.loc[:, "purchaseBalance"].cumsum().shift(1)
+        self.asset.rampCashflow.loc[:, "dqVector"] = self.asset.rampCashflow.loc[:, "dqBal"] / self.asset.rampCashflow.loc[:, "bopBal"]
+        self.asset.rampCashflow.loc[:, "cnl"] = self.asset.rampCashflow.loc[:, "cumulativeLossPrin"] / self.asset.rampCashflow.loc[:, "purchaseBalance"].cumsum().shift(1)
 
     def enrichFinancingTerms(self):
         self.capTable = StructureComponent.RevolvingCapitalStructure\
@@ -33,7 +33,7 @@ class Warehouse(Structure):
         self.periodicFeesDetail = StructureComponent.PeriodicFee(self.periodicFees)
 
     def setDealCashflowDF(self):
-        self.DealCashflow = self.collateralRampCF.copy().set_index(
+        self.DealCashflow = self.asset.rampCashflow.copy().set_index(
             "period"
         )
 
@@ -227,28 +227,36 @@ class Warehouse(Structure):
 
         return self
 
-    def buildAnalysis(self):
-        super().buildAnalysis()
-
+    def buildSpecificAnalysis(self):
+        
+        # -calc- ******************* Debt Cost and Cashflow ******************* 
         self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")] = np.array(
             (self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")])
         ) + np.array(self.DealCashflow[self.capTable.classColumnsGroup("undrawnFeePaid")])
+        
+        self.DealCashflow[self.capTable.classColumnsGroup("totalCF")] = np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")]) + np.array(self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")])
 
+        # -calc- ******************* Advance Rate ******************* 
+        self.DealCashflow[self.capTable.classColumnsGroup("effectiveAdvRate")] = (
+            np.array(self.DealCashflow[self.capTable.classColumnsGroup("eopBal")])
+            / np.expand_dims(np.array(self.DealCashflow[("Asset", "eopBal")]), 1)
+        ).cumsum(axis=1)
 
+        self.DealCashflow[("Debt", "effectiveDebtCost")] = (
+            np.array(self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")].sum(axis=1))
+            / np.array(
+                self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1)
+            )
+            * 12.0
+        )
 
-
-
+        # -calc- ******************* Combine together debt CF ******************* 
         self.DealCashflow[self.capTable.classColumnsGroup("debtCF")] = np.array(
             self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")]
         ) + np.array(self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")])
 
-        self.combineDebt("eopBal")
-        self.combineDebt("debtCostDollar")
-        self.combineDebt("principalPaid")
-        self.combineDebt("debtCF")
-        self.combineDebt("eopUndrawnAmount")
 
-
+        # -calc- ******************* Lending Facility ******************* 
         self.DealCashflow[
             ("Facility", "inCommitPeriod")
         ] = self.DealCashflow.index.to_series().apply(
@@ -261,68 +269,47 @@ class Warehouse(Structure):
             lambda x: 1 if x == (self.capTable.capitalStructure['commitPeriod'].max()) else 0
         )
 
-        return self
+        # -calc- ******************* Combine Debt ******************* 
+        self.combineDebt("eopBal")
+        self.combineDebt("debtCostDollar")
+        self.combineDebt("principalPaid")
+        self.combineDebt("debtCF")
+        self.combineDebt("eopUndrawnAmount")
+        
 
-    def _buildStats(self):
-        self.StructureStats = {"metrics": {}, "ts_metrics": {}}
+    def buildSpecificStats(self):
 
-        # ts_metrics
 
-        self.StructureStats["ts_metrics"]["balances"] = self.DealCashflow[
-            [("Asset", "eopBal")] + self.capTable.classColumnsGroup("eopBal")
-        ]
-
-        self.StructureStats["ts_metrics"]["effectiveAdv"] = self.DealCashflow[
-            self.capTable.classColumnsGroup("effectiveAdvRate")
-        ]
-
-        self.StructureStats["ts_metrics"]["cashDistribution"] = self.DealCashflow[
-            [
-                ("Asset", "repaymentCash"),
-                ("Debt", "debtCF"),
-                ("Residual", "repaymentCash"),
-            ]
-        ]
-
-        self.StructureStats["ts_metrics"][
-            "cashDistributionGranular"
-        ] = self.DealCashflow[
-            [("Asset", "repaymentCash"), ("Fees", "feesCollected")]
-            + self.capTable.classColumnsGroup("debtCostDollar")
-            + self.capTable.classColumnsGroup("principalPaid")
-            + [("Residual", "repaymentCash")]
-        ]
-
-        # metrics
+        # -calc- metrics
         self.StructureStats["metrics"]["facilityCommitPeriod"] = self.capTable.capitalStructure['commitPeriod'].max()
 
-        for lender in self.capTable.effectiveClass:
-            self.StructureStats["metrics"][f"{lender}_facilitySize"] = self.facilitySize[lender]
+        prevEffAdv = 0
+        for _class in self.capTable.effectiveClass:
+            self.StructureStats["metrics"][f"{_class}_facilitySize"] = self.capTable.getTerm(_class, "facilitySize")
             
-            self.StructureStats["metrics"][f"{lender}_commitPeriod"] = self.capTable.getTerm(lender, "commitPeriod")
+            self.StructureStats["metrics"][f"{_class}_commitPeriod"] = self.capTable.getTerm(_class, "commitPeriod")
 
-            self.StructureStats["metrics"][f"{lender}_coupon"] = self.capTable.getTerm(lender, "coupon")
+            self.StructureStats["metrics"][f"{_class}_undrawnFee"] = self.capTable.getTerm(_class, "undrawnFee")
 
-            self.StructureStats["metrics"][f"{lender}_undrawnFee"] = self.capTable.getTerm(lender, "undrawnFee")
+            self.StructureStats["metrics"][f"{_class}_couponCollected"] = self.DealCashflow[(_class, "couponPaid")].sum()
 
-            self.StructureStats["metrics"][f"{lender}_couponCollected"] = self.DealCashflow[(lender, "couponPaid")].sum()
+            self.StructureStats["metrics"][f"{_class}_undrawnFeeCollected"] = self.DealCashflow[(_class, "undrawnFeePaid")].sum()
 
-            self.StructureStats["metrics"][f"{lender}_undrawnFeeCollected"] = self.DealCashflow[(lender, "undrawnFeePaid")].sum()
+            self.StructureStats["metrics"][f"{_class}_effectiveAdvRate"] = prevEffAdv + self.DealCashflow[(_class, "eopBal")].sum() / self.DealCashflow[("Asset", "eopBal")].sum()
+            
+            prevEffAdv = self.StructureStats["metrics"][f"{_class}_effectiveAdvRate"]
 
-        self.StructureStats["metrics"]["totalCashflow"] = self.DealCashflow[("Asset", "repaymentCash")].sum().sum()
 
-        self.StructureStats["metrics"]["feesCashflow"] = self.DealCashflow[self.feesColumns].sum().sum()
-
-        self.StructureStats["metrics"]["debtCouponCashflow"] = \
+        self.StructureStats["metrics"]["debtCostCollected"] = \
             self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")].sum().sum()\
                 + \
                     self.DealCashflow[self.capTable.classColumnsGroup("undrawnFeePaid")].sum().sum()
                 
-
-        self.StructureStats["metrics"]["debtPrinCashflow"] = self.DealCashflow[self.feesColumns].sum().sum()
+        
 
         self.StructureStats["metrics"]["residCashflow"] = self.DealCashflow[("Residual", "repaymentCash")].sum().sum()
-        self.StructureStats["metrics"]["assetNetYield"] = self.rampPool.rampStats["metrics"]["Unlevered Yield"]
+        self.StructureStats["metrics"]["assetNetYield"] = npf.irr(self.asset.rampCashflow["investmentCash"].values) * 12
+
 
         self.StructureStats["metrics"]["assetNetYieldPostFees"] = npf.irr(
                     self.DealCashflow[("Asset", "investmentCashDeductFees")].values
@@ -339,7 +326,7 @@ class Warehouse(Structure):
 
         self.StructureStats["metrics"]["impliedROE"] = self.StructureStats["metrics"]["NIM"] * self.StructureStats["metrics"]["leverageRatio"]
 
-        self.StructureStats["metrics"]["assetPurchased"] = self.DealCashflow[("Asset", "rampSize")].sum()
+        self.StructureStats["metrics"]["assetPurchased"] = self.DealCashflow[("Asset", "purchaseBalance")].sum()
 
         self.StructureStats["metrics"]["peakDebt"] = self.DealCashflow[("Debt", "eopBal")].max()
 
@@ -351,10 +338,36 @@ class Warehouse(Structure):
 
         self.StructureStats["metrics"]["residPnL"] = self.DealCashflow[("Residual", "investmentCF")].sum()
 
-        self.StructureStats["metrics"]["residInvestmented"] = -1.0 * self.DealCashflow[("Residual", "cashInvestment")].sum()
 
-        self.StructureStats["metrics"]["residMOIC"] = self.DealCashflow[("Residual", "repaymentCash")].sum() / self.StructureStats["metrics"]["residInvestmented"]
 
+        # -calc- filtered metrics
+        for k in ['debtCost', 'effectiveAdvRate', "assetNetYieldPostFees","debtCost", "effectiveAdvRate", "NIM", "leverageRatio", "impliedROE",
+                  "assetPurchased", "peakDebt","peakDebtPeriod", "debtPaidDownPeriod", "residInvestmented", "residYield","residMOIC"]:
+            self.StructureStats["filteredMetrics"].update({k:self.StructureStats["metrics"][k]})
+        
+        for k in ["remainingFactor", "wal", "paywindow"]:
+            for _class in self.capTable.effectiveClass:
+                classK = f"{_class}_{k}"
+                self.StructureStats["filteredMetrics"].update({classK:self.StructureStats["metrics"][classK]})
+
+
+    def getCapitalStack(self):
+        super().getCapitalStack()
+        
+        df = pd.DataFrame(columns = ["class", "commitPeriod", "facilitySize", "coupon", "undrawnFee", "paywindow", "advRate", "effectiveAdvRate"])
+        for _class in self.capTable.effectiveClass:
+            df.loc[len(df)] = [
+                _class,
+                self.capTable.getTerm(_class, "commitPeriod"),
+                self.capTable.getTerm(_class, "facilitySize"),
+                self.capTable.getTerm(_class, "coupon"),
+                self.capTable.getTerm(_class, "undrawnFee"),
+                self.StructureStats["metrics"][f"{_class}_paywindow"],
+                self.capTable.getTerm(_class, "advRate"),
+                self.StructureStats["metrics"][f"{_class}_effectiveAdvRate"],
+            ]
+            
+        return df
 
 # ************************************************************************************************************************
 

@@ -28,7 +28,7 @@ class Asset:
             self.rampSchedule.appendAsset(notional, px, cashflow)
         self.rampCashflow = self.getRampCashflow()
         self.rampAssetStats = self.buildRampStats()
-    
+            
     def getRampCashflow(self):
         res = self.rampSchedule.aggregateCashflows()
         return res[["period", 'periodYears'] + self.dollarColumns]

@@ -20,11 +20,7 @@ class AmortizationAsset(Asset):
         self.servicingFeesRatio = self.assumptionSet.get("servicingFeesRatio")
 
         self.cashflow = self.buildCashflow()
-        self.cashflow_back = self.cashflow
         self.assetStats = self.buildStats()
-
-        self.modelingWarning = {}
-        self.scenarios = {"CDRMult":1, "TotalDefaultMult":1}
 
 
     def buildCashflow(self, workingNotional = None, purchasePx = 100):
@@ -247,7 +243,6 @@ class AmortizationAsset(Asset):
             "investmentCash",
             "cumulativeInvestmentCash",
         ]
-
         return cashflow
 
     def buildStats(self):
@@ -268,6 +263,7 @@ class AmortizationAsset(Asset):
 
         assetStats["metrics"]["totalDefault"] = self.cashflow["defaultPrin"].sum()
         assetStats["metrics"]["totalLoss"] = self.cashflow["lossPrin"].sum()
+        
         assetStats["metrics"]["cnl"] = self.cashflow["lossPrin"].sum() / self.notional
         assetStats["metrics"]["cgl"] = self.cashflow["defaultPrin"].sum() / self.notional
         
@@ -276,7 +272,6 @@ class AmortizationAsset(Asset):
 
         assetStats["metrics"]["defaultTiming"] = self.cashflow.groupby("periodYears")["defaultPrin"].sum() / self.cashflow["defaultPrin"].sum()
         assetStats["metrics"]["defaultTiming"] = "/".join(map(lambda x: f'{x:.0f}', assetStats["metrics"]["defaultTiming"].iloc[1:].values * 100))
-        
 
         assetStats["ts_metrics"]["cdrCurve"] = self.cashflow[["period", "cdrVector"]]
         assetStats["ts_metrics"]["cprCurve"] = self.cashflow[["period", "cprVector"]]
