@@ -100,7 +100,10 @@ class Structure:
     
     
     def buildStats(self):
-        self.StructureStats = {"metrics": {}, "ts_metrics": {}, "filteredMetrics": {}}
+        self.StructureStats = {"metrics": {}, 
+                               "ts_metrics": {}, 
+                               "filteredMetrics": {}, 
+                               "dataCheckMetrics":pd.DataFrame(columns = ['metrics', 'targetValue', 'value', 'check'])}
         
         # -calc- ******************* ts metrics ******************* 
         

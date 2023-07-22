@@ -289,6 +289,10 @@ class TermABS(Structure):
                 self.StructureStats["filteredMetrics"].update({classK:self.StructureStats["metrics"][classK]})
 
 
+        # -calc- ******************* economics / data consistency check ******************* 
+        self.StructureStats['dataCheckMetrics'].loc[len(self.StructureStats['dataCheckMetrics']), :] = ["cashCheck",0,self.StructureStats["ts_metrics"]["cashCheck"].sum(),None]
+
+
     def getCapitalStack(self):
         super().getCapitalStack()
 
