@@ -64,24 +64,29 @@ class DealAnalytics:
     def getCapitalStack(self):
         return self.deal.leveredContainer["base"].getCapitalStack()
 
-
     def plotStructureCurves(self):
-        # structured deal performance curve
-        metrics = ['balances', 'effectiveAdv', 'totalCF','CNLTest','CEBuild']
-        fig, ax = plt.subplots(5,self.deal.getScenarioCount(), figsize=(20,15), sharex=True)
-        
+        # different structure use different set of structure performance metrics
+        metrics = list(self.deal.leveredContainer["base"].StructureStats["filteredTSMetrics"].keys())
+
+        fig, ax = plt.subplots(len(metrics),self.deal.getScenarioCount(), figsize=(self.deal.getScenarioCount() * 3.33,len(metrics) * 5), sharex=True)
+        ax = ax.flatten()
+        cnt = 0
+
         for i, metric in enumerate(metrics):
+            dynamicMetric = self.getStructureDynamicMetrics(metric)
             for j, scenario in enumerate(self.deal.getScenarioNames()):
-                df = self.getStructureDynamicMetrics(metric)[scenario]
+                
+                df = dynamicMetric[scenario]
                 title_i_j = scenario+"_"+metric
                 if metric in ['balances', 'totalCF']:
-                    df.loc[:, ["Asset"]].plot(ax = ax[i,j], grid = True, title = title_i_j, color = "black")
-                    df.drop("Asset", axis = 1).plot.area(ax = ax[i,j], stacked = True, grid = True, title = title_i_j)
+                    df.loc[:, ["Asset"]].plot(ax = ax[cnt], grid = True, title = title_i_j, color = "black")
+                    df.drop("Asset", axis = 1).plot.area(ax = ax[cnt], stacked = True, grid = True, title = title_i_j)
                 else:
-                    df.plot(ax = ax[i,j], grid = True, title = title_i_j)
+                    df.plot(ax = ax[cnt], grid = True, title = title_i_j)
 
-                ax[i,j].set_xlabel("")
-                ax[i,j].legend(fontsize="6")
+                ax[cnt].set_xlabel("")
+                ax[cnt].legend(fontsize="6")
+                cnt += 1
 
         plt.tight_layout();plt.show()
     
@@ -109,8 +114,3 @@ class DealAnalytics:
                 df.plot(x = "period", ax = ax[i], grid = True, title=metric)
 
         plt.tight_layout();plt.show()
-
-    
-
-
-

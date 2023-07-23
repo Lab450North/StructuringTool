@@ -57,52 +57,47 @@ class Structure:
         df = self.StructureStats["ts_metrics"][metrics]
         return df
 
-    
+    def getCashflowAnalysis(self):
+        return self.DealCashflow[self.analysisColumns]
+
     def getCapitalStack(self):
         pass
-        
-    def buildSpecificAnalysis(self):
-        pass
-
 
     def buildAnalysis(self):
-
-        # -calc- ******************* Fees ******************* 
-        self.DealCashflow[("Fees", "feesCollected")] = self.DealCashflow[
-            self.feesColumns
-        ].sum(axis=1)
+        pass
         
-        # -calc- ******************* Asset ******************* 
-        self.DealCashflow[("Asset", "investmentCashDeductFees")] = (
-            -self.DealCashflow[("Asset", "purchaseCash")]
-            + self.DealCashflow[("Asset", "totalCF")]
-            - self.DealCashflow[("Fees", "feesCollected")]
-        )
 
-        # -calc- ******************* Credit Enhancement ******************* 
-        self.DealCashflow[("CreditEnhancement", "actualOC")] = self.DealCashflow[("Asset", "eopBal")] - self.DealCashflow[self.debtEopColumns].sum(axis = 1)
-        self.DealCashflow[("CreditEnhancement", "actualOCPct")] = self.DealCashflow[("CreditEnhancement", "actualOC")]/self.DealCashflow[("Asset", "eopBal")]
+        # # -calc- ******************* Fees ******************* 
+        # self.DealCashflow[("Fees", "feesCollected")] = self.DealCashflow[
+        #     self.feesColumns
+        # ].sum(axis=1)
         
-        self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = \
-            (self.DealCashflow[("Asset", "netIntCF")] - self.DealCashflow[("Fees", "feesCollected")]) / self.DealCashflow[("Asset", "bopBal")] - \
-                np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponDue")].sum(axis=1)) / np.array(self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1))
+        # # -calc- ******************* Asset ******************* 
+        # self.DealCashflow[("Asset", "investmentCashDeductFees")] = (
+        #     -self.DealCashflow[("Asset", "purchaseCash")]
+        #     + self.DealCashflow[("Asset", "totalCF")]
+        #     - self.DealCashflow[("Fees", "feesCollected")]
+        # )
 
-        self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = self.DealCashflow[("CreditEnhancement", "ExcessSpread")] * 12
+        # # -calc- ******************* Credit Enhancement ******************* 
+        # self.DealCashflow[("CreditEnhancement", "actualOC")] = self.DealCashflow[("Asset", "eopBal")] - self.DealCashflow[self.debtEopColumns].sum(axis = 1)
+        # self.DealCashflow[("CreditEnhancement", "actualOCPct")] = self.DealCashflow[("CreditEnhancement", "actualOC")]/self.DealCashflow[("Asset", "eopBal")]
+        
+        # self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = \
+        #     (self.DealCashflow[("Asset", "netIntCF")] - self.DealCashflow[("Fees", "feesCollected")]) / self.DealCashflow[("Asset", "bopBal")] - \
+        #         np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponDue")].sum(axis=1)) / np.array(self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1))
 
-        # -calc- ******************* Rest of Calculation to Specific Structure ******************* 
-        self.buildSpecificAnalysis()
+        # self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = self.DealCashflow[("CreditEnhancement", "ExcessSpread")] * 12
+
 
     
-    def buildSpecificStats(self):
-        # spcific stats for each structure
-        # select filtered metrics in each structure
-        pass
     
     
     def buildStats(self):
         self.StructureStats = {"metrics": {}, 
                                "ts_metrics": {}, 
                                "filteredMetrics": {}, 
+                               "filteredTSMetrics": {}, 
                                "dataCheckMetrics":pd.DataFrame(columns = ['metrics', 'targetValue', 'value', 'check'])}
         
         # -calc- ******************* ts metrics ******************* 
@@ -169,4 +164,4 @@ class Structure:
 
 
         # -calc- ******************* Rest of Calculation to Specific Structure ******************* 
-        self.buildSpecificStats()
+        

@@ -55,8 +55,9 @@ class SPCFUtils:
     @staticmethod
     def changeAssumption(assumptionsDict, changeDict):
         for k, v in changeDict.items():
-            if k in assumptionsDict:
-                assumptionsDict[k] = v
+            assumptionsDict[k] = v
+            # not only for existing keys
+            # if k in assumptionsDict:
         return assumptionsDict
         
     @staticmethod

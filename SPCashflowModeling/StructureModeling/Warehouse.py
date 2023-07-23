@@ -60,6 +60,8 @@ class Warehouse(Structure):
             (col[0], col[1].replace("bop", "eop")) for col in self.debtBopColumns
         ]
 
+        self.debtEopBalColumns = [i for i in self.debtEopColumns if i[1] == 'eopBal']
+
         self.feesColumns = list(itertools.product(["Fees"], DEALCOLUMNS['Fees']))
 
     def buildCashflow(self):
@@ -87,7 +89,7 @@ class Warehouse(Structure):
             )
 
 
-            # *********************** periodic fees ***********************
+            # -calc- ********************** periodic fees ***********************
             if i >0:
                 for feeIdx, feeRow in self.periodicFeesDetail.fees.iterrows():
                     if feeRow['isRatio']:
@@ -101,8 +103,8 @@ class Warehouse(Structure):
             availcash = availcash - feesDue
 
             row[("AvailCash", "afterFees")] = availcash
-
-            # *********************** Facility Fee & Debt Coupon ***********************
+            
+            # -calc- *********************** Facility Fee & Debt Coupon ***********************
 
             # facility fee and coupon due
             row[self.capTable.classColumnsGroup("undrawnFeeDue")] = (
@@ -138,8 +140,7 @@ class Warehouse(Structure):
 
             row[("AvailCash", "afterDebtCoupon")] = availcash
 
-
-            # *********************** Debt Principal ***********************
+            # -calc- *********************** Debt Principal ***********************
 
             # calculate principal payment requirement
             row[self.capTable.classColumnsGroup("eopFacilitySize")] = np.array(
@@ -207,9 +208,11 @@ class Warehouse(Structure):
                 - np.array(row[self.capTable.classColumnsGroup("eopFacilitySize")]),
             )
 
+            # -calc- *********************** AM and EOD Test ***********************
+            row[("AMTriggerTest", "CNLActual")] = row[("Asset", "cnl")]
 
 
-            # *********************** Residual Cashflow ***********************
+            # -calc- *********************** Residual Cashflow ***********************
 
             row[("Residual", "cashInvestment")] = -row[("Asset", "purchaseCash")] + sum(row[self.capTable.classColumnsGroup("newDrawn")])
 
@@ -224,11 +227,33 @@ class Warehouse(Structure):
 
             self.DealCashflow.loc[i] = row
 
-
+        self.cashflowColumns = self.DealCashflow.columns
         return self
 
-    def buildSpecificAnalysis(self):
+    def buildAnalysis(self):
+
+        # -calc- ******************* Fees ******************* 
+        self.DealCashflow[("Fees", "feesCollected")] = self.DealCashflow[
+            self.feesColumns
+        ].sum(axis=1)
         
+        # -calc- ******************* Asset ******************* 
+        self.DealCashflow[("Asset", "investmentCashDeductFees")] = (
+            -self.DealCashflow[("Asset", "purchaseCash")]
+            + self.DealCashflow[("Asset", "totalCF")]
+            - self.DealCashflow[("Fees", "feesCollected")]
+        )
+
+        # -calc- ******************* Credit Enhancement ******************* 
+        self.DealCashflow[("CreditEnhancement", "actualOC")] = self.DealCashflow[("Asset", "eopBal")] - self.DealCashflow[self.debtEopBalColumns].sum(axis = 1)
+        self.DealCashflow[("CreditEnhancement", "actualOCPct")] = self.DealCashflow[("CreditEnhancement", "actualOC")]/self.DealCashflow[("Asset", "eopBal")]
+        
+        self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = \
+            (self.DealCashflow[("Asset", "netIntCF")] - self.DealCashflow[("Fees", "feesCollected")]) / self.DealCashflow[("Asset", "bopBal")] - \
+                np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponDue")].sum(axis=1)) / np.array(self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1))
+
+        self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = self.DealCashflow[("CreditEnhancement", "ExcessSpread")] * 12
+
         # -calc- ******************* Debt Cost and Cashflow ******************* 
         self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")] = np.array(
             (self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")])
@@ -269,6 +294,16 @@ class Warehouse(Structure):
             lambda x: 1 if x == (self.capTable.capitalStructure['commitPeriod'].max()) else 0
         )
 
+        self.DealCashflow[
+            ("Facility", "facilitySize")
+        ] = self.DealCashflow[self.capTable.classColumnsGroup("eopFacilitySize")].sum(axis = 1)
+        
+        self.DealCashflow[
+            ("Facility", "facilityUsage")
+        ] = np.array(self.DealCashflow[self.capTable.classColumnsGroup("eopBal")].sum(axis = 1))/ np.array(self.DealCashflow[("Facility", "facilitySize")])
+
+
+
         # -calc- ******************* Combine Debt ******************* 
         self.combineDebt("eopBal")
         self.combineDebt("debtCostDollar")
@@ -276,11 +311,13 @@ class Warehouse(Structure):
         self.combineDebt("debtCF")
         self.combineDebt("eopUndrawnAmount")
         
+        newColumns = [col for col in self.DealCashflow.columns.tolist() if col not in self.cashflowColumns.tolist()]
+        self.analysisColumns = pd.MultiIndex.from_tuples(newColumns)
 
-    def buildSpecificStats(self):
+    def buildStats(self):
+        super().buildStats()
 
-
-        # -calc- metrics
+        # -calc- ******************* metrics ******************* 
         self.StructureStats["metrics"]["facilityCommitPeriod"] = self.capTable.capitalStructure['commitPeriod'].max()
 
         prevEffAdv = 0
@@ -338,9 +375,25 @@ class Warehouse(Structure):
 
         self.StructureStats["metrics"]["residPnL"] = self.DealCashflow[("Residual", "investmentCF")].sum()
 
+        
+        # -calc- ******************* ts metrics ******************* 
+        self.StructureStats["ts_metrics"]["CNLTest"] = self.DealCashflow[
+             [("AMTriggerTest", "CNLActual")]
+        ]
+        
+        self.StructureStats["ts_metrics"]["CEBuild"] = self.DealCashflow[
+            [("CreditEnhancement", "actualOCPct")]
+        ]
 
+        self.StructureStats["ts_metrics"]["facilitySize"] = self.DealCashflow[
+            [("Facility", "facilitySize")]
+        ]
 
-        # -calc- filtered metrics
+        self.StructureStats["ts_metrics"]["facilityUsage"] = self.DealCashflow[
+            [("Facility", "facilityUsage")]
+        ]
+
+        # -calc- ******************* filtered metrics ******************* 
         for k in ['debtCost', 'effectiveAdvRate', "assetNetYieldPostFees","debtCost", "effectiveAdvRate", "NIM", "leverageRatio", "impliedROE",
                   "assetPurchased", "peakDebt","peakDebtPeriod", "debtPaidDownPeriod", "residInvestmented", "residYield","residMOIC"]:
             self.StructureStats["filteredMetrics"].update({k:self.StructureStats["metrics"][k]})
@@ -350,7 +403,11 @@ class Warehouse(Structure):
                 classK = f"{_class}_{k}"
                 self.StructureStats["filteredMetrics"].update({classK:self.StructureStats["metrics"][classK]})
 
-
+        # -calc- ******************* filtered ts metrics ******************* 
+        for k in ['balances', 'effectiveAdv', 'totalCF', 'facilitySize', 'facilityUsage']:
+            self.StructureStats["filteredTSMetrics"].update({k:self.StructureStats["ts_metrics"][k]})
+                   
+        
     def getCapitalStack(self):
         super().getCapitalStack()
         
@@ -405,7 +462,13 @@ DEALCOLUMNS['Debt'] = [
                 ]
 
 
+
 DEALCOLUMNS['Residual'] = ["cashInvestment", "repaymentCash", "investmentCF"]
+
+
+DEALCOLUMNS['AMTriggerTest'] = [
+                    "CNLActual",
+                ]
 
 DEALCOLUMNS['AvailCash'] = [
                 "fromAsset",

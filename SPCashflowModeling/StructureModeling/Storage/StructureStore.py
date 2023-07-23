@@ -73,7 +73,7 @@ STRUCTURESTORE['WH'] = {
     "advRate": {"Snr": 70, "Mezz": 85},
     "coupon": {"Snr": 0.07, "Mezz": 0.13},
     "undrawnFee": {"Snr": 0.001, "Mezz": 0.002},
-    "commitPeriod": {"Snr": 2, "Mezz": 2},
+    "commitPeriod": {"Snr": 6, "Mezz": 6},
     "facilitySize": {"Snr": 1e8, "Mezz": 3e7},
     "periodicFees": {"trustee": {"feeAmount": 0.0025, "isRatio": True, "feeFreq": 12},
                      "verificationAgent": {"feeAmount": 0.0025, "isRatio": True, "feeFreq": 12},

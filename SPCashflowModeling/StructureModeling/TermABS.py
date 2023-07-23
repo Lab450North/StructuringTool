@@ -57,6 +57,8 @@ class TermABS(Structure):
         self.debtEopColumns = [
             (col[0], col[1].replace("bop", "eop")) for col in self.debtBopColumns
         ]
+        
+        self.debtEopBalColumns = [i for i in self.debtEopColumns if i[1] == 'eopBal']
 
         self.feesColumns = list(itertools.product(["Fees"], DEALCOLUMNS['Fees']))
         
@@ -208,10 +210,35 @@ class TermABS(Structure):
 
             self.DealCashflow.loc[i] = row
 
+        self.cashflowColumns = self.DealCashflow.columns
         return self
 
-    def buildSpecificAnalysis(self):
+    def buildAnalysis(self):
+        super().buildAnalysis()
 
+        # -calc- ******************* Fees ******************* 
+        
+        self.DealCashflow[("Fees", "feesCollected")] = self.DealCashflow[
+            self.feesColumns
+        ].sum(axis=1)
+
+        # -calc- ******************* Asset ******************* 
+        self.DealCashflow[("Asset", "investmentCashDeductFees")] = (
+            -self.DealCashflow[("Asset", "purchaseCash")]
+            + self.DealCashflow[("Asset", "totalCF")]
+            - self.DealCashflow[("Fees", "feesCollected")]
+        )        
+
+        # -calc- ******************* Credit Enhancement ******************* 
+        self.DealCashflow[("CreditEnhancement", "actualOC")] = self.DealCashflow[("Asset", "eopBal")] - self.DealCashflow[self.debtEopColumns].sum(axis = 1)
+        self.DealCashflow[("CreditEnhancement", "actualOCPct")] = self.DealCashflow[("CreditEnhancement", "actualOC")]/self.DealCashflow[("Asset", "eopBal")]
+        
+        self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = \
+            (self.DealCashflow[("Asset", "netIntCF")] - self.DealCashflow[("Fees", "feesCollected")]) / self.DealCashflow[("Asset", "bopBal")] - \
+                np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponDue")].sum(axis=1)) / np.array(self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1))
+
+        self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = self.DealCashflow[("CreditEnhancement", "ExcessSpread")] * 12
+        
         # -calc- ******************* Debt Cost and Cashflow ******************* 
         self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")] = np.array(
             (self.DealCashflow[self.capTable.classColumnsGroup("couponPaid")])
@@ -238,14 +265,17 @@ class TermABS(Structure):
             self.DealCashflow[self.capTable.classColumnsGroup("principalPaid")]
         ) + np.array(self.DealCashflow[self.capTable.classColumnsGroup("debtCostDollar")])
 
-
         # -calc- ******************* Combine Debt ******************* 
         self.combineDebt("eopBal")
         self.combineDebt("debtCostDollar")
         self.combineDebt("principalPaid")
         self.combineDebt("debtCF")
+        
+        newColumns = [col for col in self.DealCashflow.columns.tolist() if col not in self.cashflowColumns.tolist()]
+        self.analysisColumns = pd.MultiIndex.from_tuples(newColumns)
 
-    def buildSpecificStats(self):
+    def buildStats(self):
+        super().buildStats()
 
         # -calc- ******************* metrics ******************* 
 
@@ -288,6 +318,11 @@ class TermABS(Structure):
                 classK = f"{_class}_{k}"
                 self.StructureStats["filteredMetrics"].update({classK:self.StructureStats["metrics"][classK]})
 
+
+        # -calc- ******************* filtered ts metrics ******************* 
+        for k in ['balances', 'effectiveAdv', 'totalCF','CNLTest','CEBuild']:
+            self.StructureStats["filteredTSMetrics"].update({k:self.StructureStats["ts_metrics"][k]})
+            
 
         # -calc- ******************* economics / data consistency check ******************* 
         self.StructureStats['dataCheckMetrics'].loc[len(self.StructureStats['dataCheckMetrics']), :] = ["cashCheck",0,self.StructureStats["ts_metrics"]["cashCheck"].sum(),None]
