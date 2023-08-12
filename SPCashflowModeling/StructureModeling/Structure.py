@@ -2,22 +2,17 @@ import pandas as pd
 import numpy as np
 import numpy_financial as npf
 from functools import reduce
+import StructureModeling.StructureRegistry as StructureRegistry
+
+
 
 class Structure:
     def __new__(cls, asset, **kwargs):
-        structureType = kwargs.get("structureType")
+        structureType = kwargs.get("structureType") 
         if cls is Structure:
-
-            if structureType.lower() == "termabs":
-                # * to avoid circular import, import module here *
-                from StructureModeling.TermABS import TermABS
-                return super(Structure, cls).__new__(TermABS)
-
-            elif structureType.lower() == "warehouse":
-                from StructureModeling.Warehouse import Warehouse
-                return super(Structure, cls).__new__(Warehouse)
-                
-        return super(Structure, cls).__new__(cls)
+            selectedStructure = StructureRegistry.structureRegistry(structureType)
+            if selectedStructure:
+                return super(Structure, cls).__new__(selectedStructure)
 
     def __init__(self, asset, **kwargs):
         self.financingTerms = kwargs
