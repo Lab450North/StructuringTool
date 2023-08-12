@@ -3,16 +3,16 @@ import numpy_financial as npf
 from functools import reduce
 from AssetModeling.AssetRamper import AssetRamper
 from Utils.SPCFUtils import SPCFUtils
+import AssetModeling.AssetRegistry as AssetRegistry
+
 
 class Asset:
     def __new__(cls, **kwargs):
         assetType = kwargs.get("assetType")
         if cls is Asset:
-            if assetType.lower() == "amortization":
-                # to avoid circular import, import module here
-                from AssetModeling.AmortizationAsset import AmortizationAsset
-                return super(Asset, cls).__new__(AmortizationAsset)
-        return super(Asset, cls).__new__(cls)
+            selectedAsset = AssetRegistry.assetRegistry(assetType)
+            if selectedAsset:
+                return super(Asset, cls).__new__(selectedAsset)
 
     def __init__(self, **kwargs):
         self.assumptionSet = kwargs
