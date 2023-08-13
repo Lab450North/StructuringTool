@@ -66,7 +66,7 @@ class DealAnalytics:
         return self.deal.leveredContainer["base"].getCapitalStack()
 
     def plotStructureCurves(self):
-        # different structure use different set of structure performance metrics
+        # different structure use different set of structure performance metrics, based off the filteredTSMetrics
         metrics = list(self.deal.leveredContainer["base"].StructureStats["filteredTSMetrics"].keys())
 
         fig, ax = plt.subplots(len(metrics),self.deal.getScenarioCount(), figsize=(self.deal.getScenarioCount() * 3.33,len(metrics) * 5), sharex=True)
@@ -80,16 +80,22 @@ class DealAnalytics:
                 df = dynamicMetric[scenario]
                 title_i_j = scenario+"_"+metric
                 if metric in ['balances', 'totalCF']:
-                    df.loc[:, ["Asset"]].plot(ax = ax[cnt], grid = True, title = title_i_j, color = "black")
-                    df.drop("Asset", axis = 1).plot.area(ax = ax[cnt], stacked = True, grid = True, title = title_i_j)
+                    df.loc[:, ["Asset"]].plot(ax = ax[cnt], grid = True, color = "black")
+                    df.drop("Asset", axis = 1).plot.area(ax = ax[cnt], stacked = True, grid = True)
+                elif metric == 'facilityStatus':
+                    df.loc[:, ('Facility', 'facilitySize')].plot.area(ax = ax[cnt], stacked = True, alpha = 0.5)
+                    axTwin = ax[cnt].twinx()
+                    df.loc[:, ('Facility', 'facilityUsage')].plot(ax = axTwin, grid = True, color = 'black')
+                    axTwin.legend(fontsize="6", loc = "lower right")
                 else:
-                    df.plot(ax = ax[cnt], grid = True, title = title_i_j)
+                    df.plot(ax = ax[cnt], grid = True)
 
+                ax[cnt].set_title(title_i_j, fontsize=10)
                 ax[cnt].set_xlabel("")
                 ax[cnt].legend(fontsize="6")
                 cnt += 1
 
-        plt.tight_layout();plt.show()
+        plt.tight_layout(pad = 3.0);plt.show()
     
     def plotCollateralCurves(self):
         # typical performance curve of amortization asset
@@ -99,7 +105,7 @@ class DealAnalytics:
         for i, metric in enumerate(metrics):
             self.getAssetDynamicMetrics(metric, ramp = False).plot(x = "period", ax = ax[i], grid = True, title=metric)
 
-        plt.tight_layout();plt.show()
+        plt.tight_layout(pad = 3.0);plt.show()
     
     def plotRampCurves(self):
         # ramped asset performance curve
@@ -114,4 +120,4 @@ class DealAnalytics:
             else:
                 df.plot(x = "period", ax = ax[i], grid = True, title=metric)
 
-        plt.tight_layout();plt.show()
+        plt.tight_layout(pad = 3.0);plt.show()

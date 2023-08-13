@@ -24,13 +24,9 @@ class DealManager:
             self.addAssetScenario(k,v)
 
     def __repr__(self):
-        return f'''DealManager(dealName = "{self.dealName}",
-    dealDescriptive = {self.dealDescriptive},
-    dealMisc = {self.dealMisc},
-    rampSchedule = {self.rampSchedule},
-    assetScenarios = {self.assetScenarios},
-    financingTerms = {self.financingTerms}
-    )'''
+        deal_identity = self.getDealIdentity()
+        content = ', '.join(f'''{k}={'"'+str(v)+'"'}''' if isinstance(v, str) else f'{k}={v}' for k, v in deal_identity.items())
+        return f'DealManager({content})'
 
     def getCapitalStack(self):
         if "base" not in self.assetScenarios:
@@ -38,12 +34,11 @@ class DealManager:
             return None
                         
         return self.leveredContainer["base"].getCapitalStack()
-    
 
     def getDealIdentity(self):
         return {"dealName": self.dealName,
                 "dealDescriptive": self.dealDescriptive,
-                "dealFees": self.dealFees,
+                "dealMisc": self.dealMisc,
                 "rampSchedule": self.rampSchedule,
                 "assetScenarios": self.assetScenarios,
                 "financingTerms": self.financingTerms

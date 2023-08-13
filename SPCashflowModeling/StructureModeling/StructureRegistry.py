@@ -1,5 +1,3 @@
-
-
 def structureRegistry(structureType):
 
     if structureType.lower() == "termabs":

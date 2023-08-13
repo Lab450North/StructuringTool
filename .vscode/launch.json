@@ -10,7 +10,7 @@
             "name": "testStructure",
             "type": "python",
             "request": "launch",
-            "program": "/home/honfan/Work/SP/Lab450North/Lab450North/SPCashflowModeling/SPCFPresentation.py",
+            "program": "/home/honfan/Work/SP/Lab450North/StructuringTool/SPCashflowModeling/SPCFPresentation.py",
             "console": "integratedTerminal",
             "justMyCode": true
         },

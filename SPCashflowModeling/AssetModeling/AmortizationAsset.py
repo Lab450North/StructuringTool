@@ -188,6 +188,9 @@ class AmortizationAsset(Asset):
                     - cashflow.at[i, "defaultPrin"]
                     - cashflow.at[i, "prepayPrin"]
                 )
+                
+                if cashflow.at[i, "eopBal"] < 0:
+                    cashflow.at[i, "eopBal"] = 0
 
                 servicingFeesDue = (
                     np.average([cashflow.at[i, "bopBal"], cashflow.at[i, "eopBal"]])

@@ -385,13 +385,13 @@ class Warehouse(Structure):
             [("CreditEnhancement", "actualOCPct")]
         ]
 
-        self.StructureStats["ts_metrics"]["facilitySize"] = self.DealCashflow[
-            [("Facility", "facilitySize")]
+        self.StructureStats["ts_metrics"]["facilityStatus"] = self.DealCashflow[
+            [
+                ("Facility", "facilitySize"),
+                ("Facility", "facilityUsage")
+            ]
         ]
 
-        self.StructureStats["ts_metrics"]["facilityUsage"] = self.DealCashflow[
-            [("Facility", "facilityUsage")]
-        ]
 
         # -calc- ******************* filtered metrics ******************* 
         for k in ['debtCost', 'effectiveAdvRate', "assetNetYieldPostFees","debtCost", "effectiveAdvRate", "NIM", "leverageRatio", "impliedROE",
@@ -404,7 +404,7 @@ class Warehouse(Structure):
                 self.StructureStats["filteredMetrics"].update({classK:self.StructureStats["metrics"][classK]})
 
         # -calc- ******************* filtered ts metrics ******************* 
-        for k in ['balances', 'effectiveAdv', 'totalCF', 'facilitySize', 'facilityUsage']:
+        for k in ['balances', 'effectiveAdv', 'totalCF', 'facilityStatus']:
             self.StructureStats["filteredTSMetrics"].update({k:self.StructureStats["ts_metrics"][k]})
                    
         

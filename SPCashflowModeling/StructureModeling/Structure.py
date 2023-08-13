@@ -4,8 +4,6 @@ import numpy_financial as npf
 from functools import reduce
 import StructureModeling.StructureRegistry as StructureRegistry
 
-
-
 class Structure:
     def __new__(cls, asset, **kwargs):
         structureType = kwargs.get("structureType") 
@@ -60,32 +58,6 @@ class Structure:
 
     def buildAnalysis(self):
         pass
-        
-
-        # # -calc- ******************* Fees ******************* 
-        # self.DealCashflow[("Fees", "feesCollected")] = self.DealCashflow[
-        #     self.feesColumns
-        # ].sum(axis=1)
-        
-        # # -calc- ******************* Asset ******************* 
-        # self.DealCashflow[("Asset", "investmentCashDeductFees")] = (
-        #     -self.DealCashflow[("Asset", "purchaseCash")]
-        #     + self.DealCashflow[("Asset", "totalCF")]
-        #     - self.DealCashflow[("Fees", "feesCollected")]
-        # )
-
-        # # -calc- ******************* Credit Enhancement ******************* 
-        # self.DealCashflow[("CreditEnhancement", "actualOC")] = self.DealCashflow[("Asset", "eopBal")] - self.DealCashflow[self.debtEopColumns].sum(axis = 1)
-        # self.DealCashflow[("CreditEnhancement", "actualOCPct")] = self.DealCashflow[("CreditEnhancement", "actualOC")]/self.DealCashflow[("Asset", "eopBal")]
-        
-        # self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = \
-        #     (self.DealCashflow[("Asset", "netIntCF")] - self.DealCashflow[("Fees", "feesCollected")]) / self.DealCashflow[("Asset", "bopBal")] - \
-        #         np.array(self.DealCashflow[self.capTable.classColumnsGroup("couponDue")].sum(axis=1)) / np.array(self.DealCashflow[self.capTable.classColumnsGroup("bopBal")].sum(axis=1))
-
-        # self.DealCashflow[("CreditEnhancement", "ExcessSpread")] = self.DealCashflow[("CreditEnhancement", "ExcessSpread")] * 12
-
-
-    
     
     
     def buildStats(self):
