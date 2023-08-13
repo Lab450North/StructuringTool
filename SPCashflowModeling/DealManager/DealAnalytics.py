@@ -19,6 +19,7 @@ class DealAnalytics:
     def __init__(self, deal):
         self.deal = deal
 
+
     def presentDeal(self):
         printStarryString("Capital Stack")
         print(self.getCapitalStack())

@@ -11,7 +11,7 @@ class DealManager:
     def __init__(self, **kwargs):
         self.dealName = kwargs.get("dealName")
         self.dealDescriptive = kwargs.get("dealDescriptive")
-        self.dealFees = kwargs.get("dealFees")
+        self.dealMisc = kwargs.get("dealMisc")
 
         self.assetScenarios = {}
         self.leveredContainer = {}
@@ -22,7 +22,16 @@ class DealManager:
         assetScenarios = kwargs.get("assetScenarios")
         for k, v in assetScenarios.items():
             self.addAssetScenario(k,v)
-        
+
+    def __repr__(self):
+        return f'''DealManager(dealName = "{self.dealName}",
+    dealDescriptive = {self.dealDescriptive},
+    dealMisc = {self.dealMisc},
+    rampSchedule = {self.rampSchedule},
+    assetScenarios = {self.assetScenarios},
+    financingTerms = {self.financingTerms}
+    )'''
+
     def getCapitalStack(self):
         if "base" not in self.assetScenarios:
             print("Base scenario not found.")
@@ -101,36 +110,6 @@ class DealManager:
         self.checkAssetData()
 
         return True
-
-    # def getStructureStaticMetrics(self):
-    #     df = [v.getStaticMetrics().rename(columns = {"value":k, "matrics":"matrics/px"}) for k, v in self.leveredContainer.items()]
-    #     df = reduce(lambda left,right: pd.merge(left,right,on='matrics/px', how='outer'), df)
-        
-    #     return df
-
-    # def getStructureDynamicMetrics(self, metrics):
-    #     resDict = {}
-    #     for k, v in self.leveredContainer.items():
-    #         resDict[k] = v.getDynamicMetrics(metrics)
-    #     return resDict
-
-    # def getAssetStaticMetrics(self, pxList = [100], ramp = False):
-    #     df = [v.asset.getStaticMetrics(ramp).rename(columns = {"value":k, "matrics":"matrics/px"}) for k, v in self.leveredContainer.items()]
-    #     df = reduce(lambda left,right: pd.merge(left,right,on='matrics/px', how='outer'), df)
-        
-    #     if ramp == False:
-    #         dfYT = [v.asset.calculateYieldTable(pxList).rename(columns = {"yield":k, "px":"matrics/px"}) for k, v in self.leveredContainer.items()]
-    #         dfYT = reduce(lambda left,right: pd.merge(left,right,on='matrics/px', how='outer'), dfYT)
-    #         df = pd.concat([df, dfYT], axis = 0, ignore_index=True)
-        
-    #     return df
-
-    # def getAssetDynamicMetrics(self, metrics):
-    #     returnNewDf = lambda x, newName: x.rename(columns = {x.columns[1]: newName})
-    #     df = [returnNewDf(v.asset.getDynamicMetrics(metrics), k) for k, v in self.leveredContainer.items()]
-    #     df = reduce(lambda left,right: pd.merge(left,right,on='period', how='outer'), df)
-    #     return df
-
 
     def checkAssetData(self):
         if "base" not in [k.lower() for k in list(self.assetScenarios.keys())]:

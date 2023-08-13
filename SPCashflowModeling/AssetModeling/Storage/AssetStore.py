@@ -1,10 +1,6 @@
 from Utils.SPCFUtils import SPCFUtils
 
-
-
 ASSETSTORE = {}
-
-
 
 ASSETSTORE['consumerLoanUpstart2302'] = SPCFUtils.convertToDict(    
     assetType = "Amortization",

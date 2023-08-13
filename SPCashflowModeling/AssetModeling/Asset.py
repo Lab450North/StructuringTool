@@ -17,6 +17,7 @@ class Asset:
     def __init__(self, **kwargs):
         self.assumptionSet = kwargs
         self.rampSchedule = AssetRamper()
+
         
     def addRampSchedule(self, rampSchedule, px, clear = False):
         if clear:
