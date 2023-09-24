@@ -31,5 +31,3 @@ ASSETSTORE['consumerLoanMarlette2303'] = SPCFUtils.convertToDict(
     sevVector = SPCFUtils.convertIntexRamp("100 95 92", term = 50, divisor = 100),
     dqVector = SPCFUtils.convertIntexRamp("0 ramp 16 6", term = 50, divisor = 100),
     servicingFeesRatio = 0.005)
-
-test = 1
